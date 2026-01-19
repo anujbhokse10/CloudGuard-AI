@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collectionGroup, onSnapshot, query, orderBy, Timestamp, where } from 'firebase/firestore';
-import { useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { collectionGroup, onSnapshot, query, orderBy, Timestamp, where, FirestoreError } from 'firebase/firestore';
+import { useFirestore, useUser, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertTriangle, Shield, CheckCircle } from 'lucide-react';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 type Alert = {
     id: string;
@@ -27,6 +28,7 @@ const riskConfig: Record<'Low' | 'Medium' | 'High', { variant: "default" | "seco
 export function AlertsTable() {
     const [alerts, setAlerts] = useState<Alert[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<FirestoreError | Error | null>(null);
     const firestore = useFirestore();
     const { user } = useUser();
 
@@ -43,6 +45,7 @@ export function AlertsTable() {
         }
 
         setLoading(true);
+        setError(null);
         const unsubscribe = onSnapshot(alertsQuery, (querySnapshot) => {
             const alertsData: Alert[] = [];
             querySnapshot.forEach((doc) => {
@@ -50,13 +53,38 @@ export function AlertsTable() {
             });
             setAlerts(alertsData);
             setLoading(false);
-        }, (error) => {
-            console.error("Error fetching alerts: ", error);
+        }, (err) => {
+            const permissionError = new FirestorePermissionError({
+                path: 'alerts', // This is a collection group query
+                operation: 'list',
+            });
+            setError(permissionError);
             setLoading(false);
+            errorEmitter.emit('permission-error', permissionError);
         });
 
         return () => unsubscribe();
     }, [alertsQuery]);
+
+    if (error) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle className="font-headline text-2xl">Real-time Security Alerts</CardTitle>
+                    <CardDescription>This is a live feed of all security alerts detected in your system.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Error</AlertTitle>
+                        <AlertDescription>
+                            There was an error fetching security alerts. You may not have permission to view this data.
+                        </AlertDescription>
+                    </Alert>
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
         <Card>
