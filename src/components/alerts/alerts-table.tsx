@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, orderBy, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { collectionGroup, onSnapshot, query, orderBy, Timestamp, where } from 'firebase/firestore';
+import { useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,7 @@ type Alert = {
     description: string;
     riskLevel: 'Low' | 'Medium' | 'High';
     timestamp: Timestamp;
+    userId: string;
 };
 
 const riskConfig: Record<'Low' | 'Medium' | 'High', { variant: "default" | "secondary" | "destructive" | "outline", icon: React.ReactNode, label: string }> = {
@@ -26,10 +27,23 @@ const riskConfig: Record<'Low' | 'Medium' | 'High', { variant: "default" | "seco
 export function AlertsTable() {
     const [alerts, setAlerts] = useState<Alert[]>([]);
     const [loading, setLoading] = useState(true);
+    const firestore = useFirestore();
+    const { user } = useUser();
+
+    const alertsQuery = useMemoFirebase(() => {
+        if (!firestore || !user) return null;
+        return query(collectionGroup(firestore, 'alerts'), where('userId', '==', user.uid), orderBy('timestamp', 'desc'));
+    }, [firestore, user]);
 
     useEffect(() => {
-        const q = query(collection(db, 'alerts'), orderBy('timestamp', 'desc'));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        if (!alertsQuery) {
+            setAlerts([]);
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        const unsubscribe = onSnapshot(alertsQuery, (querySnapshot) => {
             const alertsData: Alert[] = [];
             querySnapshot.forEach((doc) => {
                 alertsData.push({ id: doc.id, ...doc.data() } as Alert);
@@ -42,7 +56,7 @@ export function AlertsTable() {
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [alertsQuery]);
 
     return (
         <Card>
