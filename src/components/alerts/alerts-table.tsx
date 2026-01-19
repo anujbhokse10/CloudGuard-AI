@@ -21,9 +21,19 @@ type Alert = {
 
 const riskConfig: Record<'Low' | 'Medium' | 'High', { variant: "default" | "secondary" | "destructive" | "outline", icon: React.ReactNode, label: string }> = {
     Low: { variant: 'default', icon: <CheckCircle className="h-4 w-4 mr-2" />, label: 'Low' },
-    Medium: { variant: 'secondary', icon: <Shield className="h-4 w-4 mr-2" />, label: 'Medium' },
+    Medium: { variant: 'outline', icon: <Shield className="h-4 w-4 mr-2" />, label: 'Medium' },
     High: { variant: 'destructive', icon: <AlertTriangle className="h-4 w-4 mr-2" />, label: 'High' },
 };
+
+
+const mockAlerts: Alert[] = [
+    { id: 'mock1', userId: 'mockuser', riskLevel: 'High', description: 'Potential SQL injection attack detected from IP 203.0.113.45', timestamp: Timestamp.fromMillis(Date.now() - 2 * 60 * 1000) },
+    { id: 'mock2', userId: 'mockuser', riskLevel: 'Medium', description: 'Multiple failed login attempts for user `admin`', timestamp: Timestamp.fromMillis(Date.now() - 15 * 60 * 1000) },
+    { id: 'mock3', userId: 'mockuser', riskLevel: 'Medium', description: 'Anomalous outbound traffic to a known malicious domain', timestamp: Timestamp.fromMillis(Date.now() - 1 * 60 * 60 * 1000) },
+    { id: 'mock4', userId: 'mockuser', riskLevel: 'Low', description: 'Unusual file modification detected in `/var/www/html`', timestamp: Timestamp.fromMillis(Date.now() - 3 * 60 * 60 * 1000) },
+    { id: 'mock5', userId: 'mockuser', riskLevel: 'High', description: 'Cross-site scripting (XSS) vulnerability detected in user profile page', timestamp: Timestamp.fromMillis(Date.now() - 5 * 60 * 60 * 1000) },
+];
+
 
 export function AlertsTable() {
     const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -31,6 +41,11 @@ export function AlertsTable() {
     const [error, setError] = useState<FirestoreError | Error | null>(null);
     const firestore = useFirestore();
     const { user } = useUser();
+    const [isClient, setIsClient] = useState(false);
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
 
     const alertsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
@@ -65,8 +80,11 @@ export function AlertsTable() {
 
         return () => unsubscribe();
     }, [alertsQuery]);
+    
+    const dataToShow = !loading && alerts.length === 0 ? mockAlerts : alerts;
 
-    if (error) {
+
+    if (error && alerts.length === 0) {
         return (
             <Card>
                 <CardHeader>
@@ -109,25 +127,37 @@ export function AlertsTable() {
                                 <TableCell><Skeleton className="h-4 w-20 float-right" /></TableCell>
                             </TableRow>
                         ))}
-                        {!loading && alerts.length === 0 && (
+                        {!loading && dataToShow.length === 0 && (
                             <TableRow>
                                 <TableCell colSpan={3} className="text-center h-24">No alerts found. Your system is looking good!</TableCell>
                             </TableRow>
                         )}
-                        {!loading && alerts.map((alert) => (
-                            <TableRow key={alert.id}>
-                                <TableCell>
-                                    <Badge variant={riskConfig[alert.riskLevel].variant} className="items-center">
-                                        {riskConfig[alert.riskLevel].icon}
-                                        <span>{riskConfig[alert.riskLevel].label}</span>
-                                    </Badge>
-                                </TableCell>
-                                <TableCell>{alert.description}</TableCell>
-                                <TableCell className="text-right text-muted-foreground">
-                                    {formatDistanceToNow(alert.timestamp.toDate(), { addSuffix: true })}
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                        {!loading && dataToShow.length > 0 && (
+                             <>
+                                {alerts.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="text-center py-4 text-muted-foreground border-b">
+                                            <p className="font-semibold">Displaying Sample Demo Data</p>
+                                            <p className="text-xs">No live alerts were found in your project.</p>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                                {dataToShow.map((alert) => (
+                                    <TableRow key={alert.id}>
+                                        <TableCell>
+                                            <Badge variant={riskConfig[alert.riskLevel].variant} className="items-center">
+                                                {riskConfig[alert.riskLevel].icon}
+                                                <span>{riskConfig[alert.riskLevel].label}</span>
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>{alert.description}</TableCell>
+                                        <TableCell className="text-right text-muted-foreground">
+                                            {isClient ? formatDistanceToNow(alert.timestamp.toDate(), { addSuffix: true }) : <Skeleton className="h-4 w-20 float-right" />}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </>
+                        )}
                     </TableBody>
                 </Table>
             </CardContent>

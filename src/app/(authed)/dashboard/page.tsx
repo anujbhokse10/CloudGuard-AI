@@ -1,24 +1,33 @@
+"use client";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ShieldCheck, AlertTriangle, Users } from "lucide-react";
 import RiskOverTimeChart from "@/components/dashboard/risk-over-time-chart";
+import { useEffect, useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const recentActivities = [
-  { id: 1, type: "Log Upload", details: "Uploaded server_logs_2024.csv", time: "2m ago", risk: "Low" },
-  { id: 2, type: "High-Risk Alert", details: "Anomalous login pattern detected", time: "15m ago", risk: "High" },
-  { id: 3, type: "User Added", details: "user@example.com added to team", time: "1h ago", risk: "N/A" },
-  { id: 4, type: "Log Analysis", details: "Analysis complete for auth_logs.json", time: "3h ago", risk: "Medium" },
-  { id: 5, type: "Settings Changed", details: "Notification preferences updated", time: "5h ago", risk: "N/A" },
+    { id: 1, type: 'High-Risk Alert', details: 'SQL Injection attempt from 192.168.1.100', time: '2m ago', risk: 'High' },
+    { id: 2, type: 'Log Analysis', details: 'Completed analysis of `prod_api_access.log`', time: '15m ago', risk: 'Medium' },
+    { id: 3, type: 'Log Upload', details: 'Uploaded `staging_db_queries.csv`', time: '45m ago', risk: 'Low' },
+    { id: 4, type: 'User Action', details: 'Admin `dave@cloudguard.ai` logged in', time: '1h ago', risk: 'N/A' },
+    { id: 5, type: 'System Update', details: 'AI risk model updated to v2.3', time: '2h ago', risk: 'N/A' },
 ];
 
 const riskVariantMap: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   "Low": "default",
-  "Medium": "secondary",
+  "Medium": "outline",
   "High": "destructive",
 };
 
 export default function DashboardPage() {
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   return (
     <div className="grid gap-6">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -28,8 +37,8 @@ export default function DashboardPage() {
             <ShieldCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-bold font-headline text-green-600">78</div>
-            <p className="text-xs text-muted-foreground">Considered 'Low Risk'. Great job!</p>
+            <div className="text-4xl font-bold font-headline text-yellow-400">42</div>
+            <p className="text-xs text-muted-foreground">'Medium Risk'. Attention recommended.</p>
           </CardContent>
         </Card>
         <Card>
@@ -38,8 +47,8 @@ export default function DashboardPage() {
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-bold font-headline">5</div>
-            <p className="text-xs text-muted-foreground">2 high-priority, 3 medium</p>
+            <div className="text-4xl font-bold font-headline">13</div>
+            <p className="text-xs text-muted-foreground">3 high-priority, 10 medium</p>
           </CardContent>
         </Card>
         <Card>
@@ -81,7 +90,9 @@ export default function DashboardPage() {
                   <TableRow key={activity.id}>
                     <TableCell>
                       <div className="font-medium">{activity.type}</div>
-                      <div className="text-sm text-muted-foreground">{activity.details} - {activity.time}</div>
+                       <div className="text-sm text-muted-foreground">
+                        {activity.details} - {isClient ? activity.time : <Skeleton className="h-4 w-10 inline-block" />}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       {activity.risk !== "N/A" ? (

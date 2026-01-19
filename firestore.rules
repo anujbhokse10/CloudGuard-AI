@@ -113,7 +113,7 @@ service cloud.firestore {
      * @principle Inherits ownership from the parent path, ensuring data remains private to the user.
      */
     match /users/{userId}/logFiles/{logFileId}/alerts/{alertId} {
-      allow get, list: if isOwner(userId);
+      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
       allow create: if isOwner(userId) && request.resource.data.userId == userId;
       allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
       allow delete: if isExistingOwner(userId);

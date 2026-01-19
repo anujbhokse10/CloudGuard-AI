@@ -4,13 +4,18 @@ import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 
 const chartData = [
-  { date: "2024-06-01", riskScore: 82 },
-  { date: "2024-06-02", riskScore: 85 },
-  { date: "2024-06-03", riskScore: 80 },
+  { date: "2024-06-01", riskScore: 65 },
+  { date: "2024-06-02", riskScore: 68 },
+  { date: "2024-06-03", riskScore: 62 },
   { date: "2024-06-04", riskScore: 75 },
-  { date: "2024-06-05", riskScore: 78 },
-  { date: "2024-06-06", riskScore: 79 },
-  { date: "2024-06-07", riskScore: 78 },
+  { date: "2024-06-05", riskScore: 72 },
+  { date: "2024-06-06", riskScore: 55 },
+  { date: "2024-06-07", riskScore: 48 },
+  { date: "2024-06-08", riskScore: 45 },
+  { date: "2024-06-09", riskScore: 42 },
+  { date: "2024-06-10", riskScore: 35 },
+  { date: "2024-06-11", riskScore: 38 },
+  { date: "2024-06-12", riskScore: 37 },
 ]
 
 const chartConfig = {
@@ -47,7 +52,7 @@ export default function RiskOverTimeChart() {
             tickLine={false}
             axisLine={false}
             tickMargin={8}
-            domain={[60, 100]}
+            domain={[20, 90]}
           />
           <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
           <Line
