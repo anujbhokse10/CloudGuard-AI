@@ -13,22 +13,27 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "../ui/form";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 const profileSchema = z.object({
     displayName: z.string().min(2, "Name must be at least 2 characters."),
     email: z.string().email(),
+    photoURL: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
 });
 
 export function ProfileForm() {
     const { user } = useAuth();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
+    const fallbackAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar-fallback')?.imageUrl || '';
 
     const form = useForm<z.infer<typeof profileSchema>>({
         resolver: zodResolver(profileSchema),
         values: {
             displayName: user?.displayName || '',
             email: user?.email || '',
+            photoURL: user?.photoURL || '',
         }
     });
 
@@ -36,10 +41,13 @@ export function ProfileForm() {
         if (!user) return;
         setIsLoading(true);
         try {
-            await updateProfile(user, { displayName: data.displayName });
+            await updateProfile(user, { 
+                displayName: data.displayName,
+                photoURL: data.photoURL,
+             });
             toast({
                 title: "Profile Updated",
-                description: "Your display name has been successfully updated.",
+                description: "Your profile has been successfully updated.",
             });
         } catch (error: any) {
             toast({
@@ -52,6 +60,8 @@ export function ProfileForm() {
         }
     }
 
+    const photoUrlValue = form.watch('photoURL');
+
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -61,6 +71,25 @@ export function ProfileForm() {
                         <CardDescription>Manage your account settings.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                        <div className="flex items-center space-x-4 pt-4">
+                            <Avatar className="h-24 w-24">
+                                <AvatarImage src={photoUrlValue || fallbackAvatar} alt={user?.displayName || ''} />
+                                <AvatarFallback>{user?.displayName?.[0].toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <FormField
+                                control={form.control}
+                                name="photoURL"
+                                render={({ field }) => (
+                                    <FormItem className="flex-1">
+                                        <Label htmlFor="photoURL">Profile Picture URL</Label>
+                                        <FormControl>
+                                            <Input id="photoURL" placeholder="https://example.com/your-image.png" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
                         <FormField
                             control={form.control}
                             name="displayName"
