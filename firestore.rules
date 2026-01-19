@@ -1,0 +1,122 @@
+/**
+ * Core Philosophy: This ruleset enforces a strict user-ownership model, where all
+ * data is siloed within a user-specific document tree. Access control is based
+ * on the user's authenticated UID matching the `{userId}` parameter in the path.
+ * This ensures that users can only ever access their own information.
+ *
+ * Data Structure: All application data is nested under the top-level `/users`
+ * collection. Each user's data, including their profile, log files, and alerts,
+ * is stored hierarchically under `/users/{userId}`. This structure is highly
+ * secure and performant for user-scoped queries.
+ *
+ * Key Security Decisions:
+ * - User Enumeration is Disabled: Listing the top-level `/users` collection is
+ *   explicitly forbidden to protect user privacy and prevent data mining.
+ * - Strict Path-Based Ownership: All rules for subcollections rely on the `{userId}`
+ *   from the document path, making access control fast and unambiguous.
+ * - Relational Integrity: On document creation, rules validate that an internal
+ *   `userId` or `id` field matches the `userId` in the path, ensuring data
+ *   is correctly attributed to its owner from the moment it's created.
+ * - Immutability of Ownership: The rules prevent the `userId` or `id` fields from
+ *   being changed after a document is created, securing the ownership link.
+ *
+ * Denormalization for Authorization: The data model is inherently designed for
+ * efficient authorization. By nesting all user content under `/users/{userId}`,
+ * the `userId` (the authorization context) is present in every path, eliminating
+ * the need for slow and costly `get()` calls to other documents.
+ *
+ * Structural Segregation: The entire data model follows the structural segregation
+ * principle. All private user data is located within a user's own document tree,
+ * completely separate from any other user's data. There are no collections with
+ * mixed public/private content, simplifying security and list operations.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----------------------------------------------------------------------
+    // Helper Functions
+    // ----------------------------------------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the requesting user's UID matches the provided userId.
+     * This is the foundation of the user-ownership model.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Verifies that the document being operated on already exists.
+     * CRITICAL for all update and delete operations.
+     */
+    function docExists() {
+      return resource != null;
+    }
+
+    /**
+     * Validates ownership and existence for a document being updated or deleted.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && docExists();
+    }
+
+    // ----------------------------------------------------------------------
+    // Collection Rules
+    // ----------------------------------------------------------------------
+
+    /**
+     * @description Controls access to a user's own profile document.
+     * @path /users/{userId}
+     * @allow (get) An authenticated user ('user_123') reads their own profile at /users/user_123.
+     * @deny (list) Any user, authenticated or not, tries to list all documents in the /users collection.
+     * @deny (get) An authenticated user ('user_123') tries to read another user's profile at /users/user_456.
+     * @principle Restricts access to a user's own data tree and prevents user enumeration.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to log files, which are owned by a specific user.
+     * @path /users/{userId}/logFiles/{logFileId}
+     * @allow (create) An authenticated user ('user_123') creates a new log file at /users/user_123/logFiles/log_abc.
+     * @allow (list) An authenticated user ('user_123') lists all their log files under /users/user_123/logFiles.
+     * @deny (update) An authenticated user ('user_123') tries to update a log file belonging to another user at /users/user_456/logFiles/log_xyz.
+     * @principle Enforces document ownership for all operations based on the user's ID in the path.
+     */
+    match /users/{userId}/logFiles/{logFileId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to alerts, which are generated from a user's log files.
+     * @path /users/{userId}/logFiles/{logFileId}/alerts/{alertId}
+     * @allow (get) An authenticated user ('user_123') reads a specific alert at /users/user_123/logFiles/log_abc/alerts/alert_789.
+     * @allow (delete) An authenticated user ('user_123') deletes an alert from their own log file.
+     * @deny (create) An unauthenticated user tries to create an alert anywhere.
+     * @deny (list) An authenticated user ('user_123') tries to list alerts from another user's log file at /users/user_456/logFiles/log_xyz/alerts.
+     * @principle Inherits ownership from the parent path, ensuring data remains private to the user.
+     */
+    match /users/{userId}/logFiles/{logFileId}/alerts/{alertId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+  }
+}
